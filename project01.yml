@@ -1,0 +1,1224 @@
+Parameters:
+  # 각 리젼의 최신 aws 리눅스 버전2의 ami id를 찾아서 LatestAmiId 변수에 저장
+  LatestLinux2AmiId:
+    Description: (DO NOT CHANGE)
+    Type: "AWS::SSM::Parameter::Value<AWS::EC2::Image::Id>"
+    Default: "/aws/service/ami-amazon-linux-latest/amzn2-ami-hvm-x86_64-gp2"
+    AllowedValues:
+      - /aws/service/ami-amazon-linux-latest/amzn2-ami-hvm-x86_64-gp2
+
+  KeyName:
+    Description: Name of an existing EC2 KeyPair to enable SSH access to the instances. Linked to AWS Parameter
+    Type: AWS::EC2::KeyPair::KeyName
+    ConstraintDescription: must be the name of an existing EC2 KeyPair.
+
+# Value: !FindInMap [AWSRegionArch2AMI, !Ref 'AWS::Region', VPC] -> 리젼이 매핑되는 곳에서 VPC에 매핑되는 값을 넣어라
+Mappings:
+  AWSRegionArch2AMI:
+    ap-northeast-2:
+      NatAmiId: ami-0e3e1b45a02a17920
+      HOST: SEOUL
+      VPC: SEOUL-VPC
+      VPCcidr: 10.1.0.0/16
+      IGW: SEOUL-IGW
+      PublicRT: SEOUL-Public-RT
+      PrivateRT1: SEOUL-Private-RT-1
+      PrivateRT2: SEOUL-Private-RT-2
+      SubRT: SEOUL-Sub-RT
+      PublicSN1: SEOUL-Public-SN-1
+      PublicSN1cidr: 10.1.1.0/24
+      SubSN1: SEOUL-Sub-SN-1
+      SubSN1cidr: 10.1.5.0/24
+      PublicSN2: SEOUL-Public-SN-2
+      PublicSN2cidr: 10.1.2.0/24
+      SubSN2: SEOUL-Sub-SN-2
+      SubSN2cidr: 10.1.6.0/24
+      PrivateSN1: SEOUL-Private-SN-1
+      PrivateSN1cidr: 10.1.3.0/24
+      PrivateSN2: SEOUL-Private-SN-2
+      PrivateSN2cidr: 10.1.4.0/24
+      EC21: SEOUL-MyWeb-1
+      EC21cidr: 10.1.3.100
+      EC22: SEOUL-MyWeb-2
+      EC22cidr: 10.1.4.100
+      NAT1: SEOUL-NAT-1
+      NAT2: SEOUL-NAT-2
+      DbPhp: db.php
+      PingChk: pingchecker.sh
+      IdcVPC: SEOUL-IDC-VPC
+      IdcVPCcidr: 10.2.0.0/16
+      IdcSN: SEOUL-IDC-SN
+      IdcSNcidr: 10.2.1.0/24
+      DnsSrvIp: 10.2.1.200
+      AnoDnsSrvIp: 10.4.1.200
+      DnsName: idcseoul.internal
+      AnoDnsName: idcsingapore.internal
+      AwsDnsName: awsseoul.internal
+      AnoAwsDnsName: awssingapore.internal
+      WebsrvDnsName: websrv.awsseoul.internal
+      Websrv1DnsName: websrv1.awsseoul.internal
+      Websrv2DnsName: websrv2.awsseoul.internal
+      DbsrvDnsName: dbsrv.idcseoul.internal
+      DbSrvIp: 10.2.1.100
+      Region: ap-northeast-2
+      InboundEP0: 10.1.3.250
+      InboundEP1: 10.1.4.250
+      OutboundEP0: 10.1.3.251
+      OutboundEP1: 10.1.4.251
+      superNet: 10.0.0.0/8
+    ap-southeast-1:
+      NatAmiId: ami-018cd92db227b86e1
+      HOST: SINGAPORE
+      VPC: SINGAPORE-VPC
+      VPCcidr: 10.3.0.0/16
+      IGW: SEOUL-IGW
+      PublicRT: SINGAPORE-Public-RT
+      PrivateRT1: SINGAPORE-Private-RT-1
+      PrivateRT2: SINGAPORE-Private-RT-2
+      SubRT: SINGAPORE-Sub-RT
+      PublicSN1: SINGAPORE-Public-SN-1
+      PublicSN1cidr: 10.3.1.0/24
+      SubSN1: SINGAPORE-Sub-SN-1
+      SubSN1cidr: 10.3.5.0/24
+      SubSN2: SINGAPORE-Sub-SN-2
+      SubSN2cidr: 10.3.6.0/24
+      PrivateSN1: SINGAPORE-Private-SN-1
+      PrivateSN1cidr: 10.3.3.0/24
+      PrivateSN2: SINGAPORE-Private-SN-2
+      PrivateSN2cidr: 10.3.4.0/24
+      EC21: SINGAPORE-MyWeb-1
+      EC21cidr: 10.3.3.100
+      NAT1: SINGAPORE-NAT-1
+      DbPhp: db2.php
+      PingChk: pingchecker2.sh
+      IdcVPC: SINGAPORE-IDC-VPC
+      IdcVPCcidr: 10.4.0.0/16
+      IdcSN: SINGAPORE-IDC-SN
+      IdcSNcidr: 10.4.1.0/24
+      DnsSrvIp: 10.4.1.200
+      AnoDnsSrvIp: 10.2.1.200
+      DnsName: idcsingapore.internal
+      AnoDnsName: idcseoul.internal
+      AwsDnsName: awssingapore.internal
+      AnoAwsDnsName: awsseoul.internal
+      WebsrvDnsName: websrv.awssingapore.internal
+      Websrv1DnsName: websrv1.awssingapore.internal
+      Websrv2DnsName: websrv2.awssingapore.internal
+      DbsrvDnsName: dbsrv.idcsingapore.internal
+      DbSrvIp: 10.4.1.100
+      Region: ap-southeast-1
+      InboundEP0: 10.3.3.250
+      InboundEP1: 10.3.4.250
+      OutboundEP0: 10.3.3.251
+      OutboundEP1: 10.3.4.251
+      superNet: 10.0.0.0/8
+
+# 조건 생성, 이 조건을 만족할 때만 해당 리소스를 생성해라
+Conditions:
+  CreateSeoulResources: !Equals [!Ref "AWS::Region", ap-northeast-2]
+  CreateSingaporeResources: !Equals [!Ref "AWS::Region", ap-southeast-1]
+
+Resources:
+  MyVPC:
+    Type: AWS::EC2::VPC
+    Properties:
+      CidrBlock: !FindInMap [AWSRegionArch2AMI, !Ref "AWS::Region", VPCcidr]
+      EnableDnsHostnames: true
+      EnableDnsSupport: true
+      Tags:
+        - Key: Name
+          Value: !FindInMap [AWSRegionArch2AMI, !Ref "AWS::Region", VPC]
+
+  MyPublicSN1:
+    Type: AWS::EC2::Subnet
+    Properties:
+      VpcId: !Ref MyVPC
+      AvailabilityZone: !Select [0, !GetAZs ""]
+      CidrBlock:
+        !FindInMap [AWSRegionArch2AMI, !Ref "AWS::Region", PublicSN1cidr]
+      Tags:
+        - Key: Name
+          Value: !FindInMap [AWSRegionArch2AMI, !Ref "AWS::Region", PublicSN1]
+
+  SubSN1:
+    Type: AWS::EC2::Subnet
+    Properties:
+      VpcId: !Ref MyVPC
+      AvailabilityZone: !Select [0, !GetAZs ""]
+      CidrBlock: !FindInMap [AWSRegionArch2AMI, !Ref "AWS::Region", SubSN1cidr]
+      Tags:
+        - Key: Name
+          Value: !FindInMap [AWSRegionArch2AMI, !Ref "AWS::Region", SubSN1]
+
+  MyPublicSN2:
+    Type: AWS::EC2::Subnet
+    Condition: CreateSeoulResources
+    Properties:
+      VpcId: !Ref MyVPC
+      AvailabilityZone: !Select [2, !GetAZs ""]
+      CidrBlock:
+        !FindInMap [AWSRegionArch2AMI, !Ref "AWS::Region", PublicSN2cidr]
+      Tags:
+        - Key: Name
+          Value: !FindInMap [AWSRegionArch2AMI, !Ref "AWS::Region", PublicSN2]
+
+  SubSN2:
+    Type: AWS::EC2::Subnet
+    Properties:
+      VpcId: !Ref MyVPC
+      AvailabilityZone: !Select [2, !GetAZs ""]
+      CidrBlock: !FindInMap [AWSRegionArch2AMI, !Ref "AWS::Region", SubSN2cidr]
+      Tags:
+        - Key: Name
+          Value: !FindInMap [AWSRegionArch2AMI, !Ref "AWS::Region", SubSN2]
+
+  MyPrivateSN1:
+    Type: AWS::EC2::Subnet
+    Properties:
+      VpcId: !Ref MyVPC
+      AvailabilityZone: !Select [0, !GetAZs ""]
+      CidrBlock:
+        !FindInMap [AWSRegionArch2AMI, !Ref "AWS::Region", PrivateSN1cidr]
+      Tags:
+        - Key: Name
+          Value: !FindInMap [AWSRegionArch2AMI, !Ref "AWS::Region", PrivateSN1]
+
+  MyPrivateSN2:
+    Type: AWS::EC2::Subnet
+    Properties:
+      VpcId: !Ref MyVPC
+      AvailabilityZone: !Select [2, !GetAZs ""]
+      CidrBlock:
+        !FindInMap [AWSRegionArch2AMI, !Ref "AWS::Region", PrivateSN2cidr]
+      Tags:
+        - Key: Name
+          Value: !FindInMap [AWSRegionArch2AMI, !Ref "AWS::Region", PrivateSN2]
+
+  # Route Table
+  MyPublicRT:
+    Type: AWS::EC2::RouteTable
+    Properties:
+      VpcId: !Ref MyVPC
+      Tags:
+        - Key: Name
+          Value: !FindInMap [AWSRegionArch2AMI, !Ref "AWS::Region", PublicRT]
+  MyPublicSN1RouteTableAssociation:
+    Type: AWS::EC2::SubnetRouteTableAssociation
+    Properties:
+      RouteTableId: !Ref MyPublicRT
+      SubnetId: !Ref MyPublicSN1
+  MyPublicSN2RouteTableAssociation:
+    Type: AWS::EC2::SubnetRouteTableAssociation
+    Condition: CreateSeoulResources
+    Properties:
+      RouteTableId: !Ref MyPublicRT
+      SubnetId: !Ref MyPublicSN2
+
+  MyPrivateRT1:
+    Type: AWS::EC2::RouteTable
+    Properties:
+      VpcId: !Ref MyVPC
+      Tags:
+        - Key: Name
+          Value: !FindInMap [AWSRegionArch2AMI, !Ref "AWS::Region", PrivateRT1]
+  MyPrivateSN1RouteTableAssociation:
+    Type: AWS::EC2::SubnetRouteTableAssociation
+    Properties:
+      RouteTableId: !Ref MyPrivateRT1
+      SubnetId: !Ref MyPrivateSN1
+
+  MyPrivateRT2:
+    Type: AWS::EC2::RouteTable
+    Properties:
+      VpcId: !Ref MyVPC
+      Tags:
+        - Key: Name
+          Value: !FindInMap [AWSRegionArch2AMI, !Ref "AWS::Region", PrivateRT2]
+  MyPrivateSN2RouteTableAssociation:
+    Type: AWS::EC2::SubnetRouteTableAssociation
+    Properties:
+      RouteTableId: !Ref MyPrivateRT2
+      SubnetId: !Ref MyPrivateSN2
+
+  MySubRT:
+    Type: AWS::EC2::RouteTable
+    Properties:
+      VpcId: !Ref MyVPC
+      Tags:
+        - Key: Name
+          Value: !FindInMap [AWSRegionArch2AMI, !Ref "AWS::Region", SubRT]
+  MySubSN1RouteTableAssociation:
+    Type: AWS::EC2::SubnetRouteTableAssociation
+    Properties:
+      RouteTableId: !Ref MySubRT
+      SubnetId: !Ref SubSN1
+  MySubSN2RouteTableAssociation:
+    Type: AWS::EC2::SubnetRouteTableAssociation
+    Properties:
+      RouteTableId: !Ref MySubRT
+      SubnetId: !Ref SubSN2
+
+  # Route
+  MyPublicRoute:
+    Type: AWS::EC2::Route
+    Properties:
+      DestinationCidrBlock: 0.0.0.0/0
+      GatewayId: !Ref MyIGW
+      RouteTableId: !Ref MyPublicRT
+
+  MyPrivateRoute1:
+    Type: AWS::EC2::Route
+    Properties:
+      DestinationCidrBlock: 0.0.0.0/0
+      NetworkInterfaceId: !Ref NATInstanceENI1
+      RouteTableId: !Ref MyPrivateRT1
+
+  MyPrivateRoute2:
+    Type: AWS::EC2::Route
+    Condition: CreateSeoulResources
+    Properties:
+      DestinationCidrBlock: 0.0.0.0/0
+      NetworkInterfaceId: !Ref NATInstanceENI2
+      RouteTableId: !Ref MyPrivateRT2
+
+  # IGW
+  MyIGW:
+    Type: AWS::EC2::InternetGateway
+    Properties:
+      Tags:
+        - Key: Name
+          Value: !FindInMap [AWSRegionArch2AMI, !Ref "AWS::Region", IGW]
+  MyIGWAttachment:
+    Type: AWS::EC2::VPCGatewayAttachment
+    Properties:
+      InternetGatewayId: !Ref MyIGW
+      VpcId: !Ref MyVPC
+
+  # Security group
+  SecurityGroup:
+    Type: AWS::EC2::SecurityGroup
+    Properties:
+      GroupDescription: Enable SSH HTTP ICMP
+      VpcId: !Ref MyVPC
+      SecurityGroupIngress:
+        - IpProtocol: tcp
+          FromPort: "80"
+          ToPort: "80"
+          CidrIp: 0.0.0.0/0
+        - IpProtocol: tcp
+          FromPort: "443"
+          ToPort: "443"
+          CidrIp: 0.0.0.0/0
+        - IpProtocol: tcp
+          FromPort: "22"
+          ToPort: "22"
+          CidrIp: 0.0.0.0/0
+        - IpProtocol: icmp
+          FromPort: -1
+          ToPort: -1
+          CidrIp: 0.0.0.0/0
+        - IpProtocol: tcp
+          FromPort: "3306"
+          ToPort: "3306"
+          CidrIp: 0.0.0.0/0
+      Tags:
+        - Key: Name
+          Value: Default-SG
+
+  # Security group
+  Route53SecurityGroup:
+    Type: AWS::EC2::SecurityGroup
+    Properties:
+      GroupDescription: Enable DNS
+      VpcId: !Ref MyVPC
+      SecurityGroupIngress:
+        - IpProtocol: tcp
+          FromPort: "53"
+          ToPort: "53"
+          CidrIp: 0.0.0.0/0
+        - IpProtocol: udp
+          FromPort: "53"
+          ToPort: "53"
+          CidrIp: 0.0.0.0/0
+      Tags:
+        - Key: Name
+          Value: Route53 Security Group
+
+  ########## Application Load Balancer ##########
+  # Load Balancer
+  MyALB:
+    Type: AWS::ElasticLoadBalancingV2::LoadBalancer
+    Condition: CreateSeoulResources
+    Properties:
+      Name: My-ALB
+      Scheme: internet-facing
+      SecurityGroups:
+        - !Ref SecurityGroup
+      Subnets:
+        - !Ref MyPublicSN1
+        - !Ref MyPublicSN2
+      Tags:
+        - Key: Name
+          Value: My-ALB
+
+  # Listener
+  ALBListener:
+    Type: AWS::ElasticLoadBalancingV2::Listener
+    Condition: CreateSeoulResources
+    Properties:
+      DefaultActions:
+        - Type: forward
+          TargetGroupArn: !Ref DefaultTG
+      LoadBalancerArn: !Ref MyALB
+      Port: 80
+      Protocol: HTTP
+
+  # Target Group
+  DefaultTG:
+    Type: AWS::ElasticLoadBalancingV2::TargetGroup
+    Condition: CreateSeoulResources
+    Properties:
+      Name: Default-TG
+      Port: 80
+      Protocol: HTTP
+      HealthCheckPort: 80 # default value is 80
+      VpcId: !Ref MyVPC
+      Targets:
+        - Id: !Ref MyWeb1
+          Port: 80
+        - Id: !Ref MyWeb2
+          Port: 80
+
+  ########## NAT Instance Setting ##########
+  # EIP generate
+  EIP1:
+    Type: AWS::EC2::EIP
+    Properties:
+      Domain: vpc
+  EIP2:
+    Type: AWS::EC2::EIP
+    Condition: CreateSeoulResources
+    Properties:
+      Domain: vpc
+
+  # ENI
+  NATInstanceENI1:
+    Type: AWS::EC2::NetworkInterface
+    Properties:
+      SubnetId: !Ref MyPublicSN1
+      Description: NAT1-Instance eht0
+      GroupSet:
+        - !Ref SecurityGroup
+      Tags:
+        - Key: Name
+          Value: NAT1-Instance-eth0
+
+  NATInstanceENI2:
+    Type: AWS::EC2::NetworkInterface
+    Condition: CreateSeoulResources
+    Properties:
+      SubnetId: !Ref MyPublicSN2
+      Description: NAT2-Instance eht0
+      GroupSet:
+        - !Ref SecurityGroup
+      Tags:
+        - Key: Name
+          Value: NAT2-Instance-eth0
+
+  # ENI associte with EIP
+  NATEniAssociationEIP1:
+    Type: AWS::EC2::EIPAssociation
+    Properties:
+      AllocationId: !GetAtt EIP1.AllocationId
+      NetworkInterfaceId: !Ref NATInstanceENI1
+
+  NATEniAssociationEIP2:
+    Type: AWS::EC2::EIPAssociation
+    Condition: CreateSeoulResources
+    Properties:
+      AllocationId: !GetAtt EIP2.AllocationId
+      NetworkInterfaceId: !Ref NATInstanceENI2
+
+  # NAT Instance
+  NATInstance1:
+    Type: AWS::EC2::Instance
+    Properties:
+      KeyName: !Ref KeyName
+      ImageId: !FindInMap [AWSRegionArch2AMI, !Ref "AWS::Region", NatAmiId]
+      InstanceType: t2.micro
+      SourceDestCheck: false
+      NetworkInterfaces:
+        - NetworkInterfaceId: !Ref NATInstanceENI1
+          DeviceIndex: 0
+      Tags:
+        - Key: Name
+          Value: !FindInMap [AWSRegionArch2AMI, !Ref "AWS::Region", NAT1]
+
+  NATInstance2:
+    Type: AWS::EC2::Instance
+    Condition: CreateSeoulResources
+    Properties:
+      KeyName: !Ref KeyName
+      ImageId: !FindInMap [AWSRegionArch2AMI, !Ref "AWS::Region", NatAmiId]
+      InstanceType: t2.micro
+      SourceDestCheck: false
+      NetworkInterfaces:
+        - NetworkInterfaceId: !Ref NATInstanceENI2
+          DeviceIndex: 0
+      Tags:
+        - Key: Name
+          Value: !FindInMap [AWSRegionArch2AMI, !Ref "AWS::Region", NAT2]
+
+  ########## Route53 ##########
+  # Hosted Zone
+  PrivateRoute53:
+    Type: AWS::Route53::HostedZone
+    Properties:
+      HostedZoneConfig:
+        Comment: Private hosted zone
+      Name: !FindInMap [AWSRegionArch2AMI, !Ref "AWS::Region", AwsDnsName]
+      VPCs:
+        - VPCId: !Ref MyVPC
+          VPCRegion: !FindInMap [AWSRegionArch2AMI, !Ref "AWS::Region", Region]
+      HostedZoneTags:
+        - Key: Name
+          Value: !FindInMap [AWSRegionArch2AMI, !Ref "AWS::Region", AwsDnsName]
+
+  # Record Setting
+  WebRecordSeoul:
+    Type: AWS::Route53::RecordSet
+    Condition: CreateSeoulResources
+    Properties:
+      HostedZoneId: !Ref PrivateRoute53
+      Comment: DNS name for AWS Application Balancer
+      Name: !FindInMap [AWSRegionArch2AMI, !Ref "AWS::Region", WebsrvDnsName]
+      Type: A
+      AliasTarget:
+        DNSName: !GetAtt MyALB.DNSName
+        HostedZoneId: !GetAtt MyALB.CanonicalHostedZoneID
+
+  Web1RecordSeoul:
+    Type: AWS::Route53::RecordSet
+    Properties:
+      HostedZoneId: !Ref PrivateRoute53
+      Comment: DNS name for AWS WEB Server 1
+      Name: !FindInMap [AWSRegionArch2AMI, !Ref "AWS::Region", Websrv1DnsName]
+      Type: A
+      TTL: 60
+      ResourceRecords:
+        - !GetAtt MyWeb1.PrivateIp
+
+  Web2RecordSeoul:
+    Type: AWS::Route53::RecordSet
+    Condition: CreateSeoulResources
+    Properties:
+      HostedZoneId: !Ref PrivateRoute53
+      Comment: DNS name for AWS WEB Server 2
+      Name: !FindInMap [AWSRegionArch2AMI, !Ref "AWS::Region", Websrv2DnsName]
+      Type: A
+      TTL: 60
+      ResourceRecords:
+        - !GetAtt MyWeb2.PrivateIp
+
+  # Route53 Resolver Setting
+  InboundEP:
+    Type: AWS::Route53Resolver::ResolverEndpoint
+    Properties:
+      Direction: INBOUND
+      IpAddresses:
+        - Ip: !FindInMap [AWSRegionArch2AMI, !Ref "AWS::Region", InboundEP0]
+          SubnetId: !Ref MyPrivateSN1
+        - Ip: !FindInMap [AWSRegionArch2AMI, !Ref "AWS::Region", InboundEP1]
+          SubnetId: !Ref MyPrivateSN2
+      SecurityGroupIds:
+        - !Ref Route53SecurityGroup
+      Tags:
+        - Key: Name
+          Value: Inbound Endpoint
+
+  OutboundEP:
+    Type: AWS::Route53Resolver::ResolverEndpoint
+    Properties:
+      Direction: OUTBOUND
+      IpAddresses:
+        - Ip: !FindInMap [AWSRegionArch2AMI, !Ref "AWS::Region", OutboundEP0]
+          SubnetId: !Ref MyPrivateSN1
+        - Ip: !FindInMap [AWSRegionArch2AMI, !Ref "AWS::Region", OutboundEP1]
+          SubnetId: !Ref MyPrivateSN2
+      SecurityGroupIds:
+        - !Ref Route53SecurityGroup
+      Tags:
+        - Key: Name
+          Value: Outbound Endpoint
+
+  SameRegionForwardRule:
+    Type: AWS::Route53Resolver::ResolverRule
+    Properties:
+      DomainName: !FindInMap [AWSRegionArch2AMI, !Ref "AWS::Region", DnsName]
+      Name: FrowardRule-same-region-idc
+      ResolverEndpointId: !Ref OutboundEP
+      RuleType: FORWARD
+      TargetIps:
+        - Ip: !FindInMap [AWSRegionArch2AMI, !Ref "AWS::Region", DnsSrvIp]
+          Port: 53
+  ResolverRuleAssociation1:
+    Type: AWS::Route53Resolver::ResolverRuleAssociation
+    Properties:
+      Name: Resolver-Rule-Association
+      ResolverRuleId: !Ref SameRegionForwardRule
+      VPCId: !Ref MyVPC
+
+  DifferentForwardRule:
+    Type: AWS::Route53Resolver::ResolverRule
+    Properties:
+      DomainName: !FindInMap [AWSRegionArch2AMI, !Ref "AWS::Region", AnoDnsName]
+      Name: FrowardRule-different-region-idc
+      ResolverEndpointId: !Ref OutboundEP
+      RuleType: FORWARD
+      TargetIps:
+        - Ip: !FindInMap [AWSRegionArch2AMI, !Ref "AWS::Region", AnoDnsSrvIp]
+          Port: 53
+  ResolverRuleAssociation2:
+    Type: AWS::Route53Resolver::ResolverRuleAssociation
+    Properties:
+      Name: Resolver-Rule-Association
+      ResolverRuleId: !Ref DifferentForwardRule
+      VPCId: !Ref MyVPC
+
+  DifferentForwardRule2:
+    Type: AWS::Route53Resolver::ResolverRule
+    Properties:
+      DomainName:
+        !FindInMap [AWSRegionArch2AMI, !Ref "AWS::Region", AnoAwsDnsName]
+      Name: FrowardRule-different-region-aws
+      ResolverEndpointId: !Ref OutboundEP
+      RuleType: FORWARD
+      TargetIps:
+        - Ip: !FindInMap [AWSRegionArch2AMI, !Ref "AWS::Region", AnoDnsSrvIp]
+          Port: 53
+  ResolverRuleAssociation3:
+    Type: AWS::Route53Resolver::ResolverRuleAssociation
+    Properties:
+      Name: Resolver-Rule-Association
+      ResolverRuleId: !Ref DifferentForwardRule2
+      VPCId: !Ref MyVPC
+
+  ########## EC2 Instance ##########
+  MyWeb1:
+    Type: AWS::EC2::Instance
+    Properties:
+      KeyName: !Ref KeyName
+      ImageId: !Ref LatestLinux2AmiId
+      InstanceType: t2.micro
+      NetworkInterfaces:
+        - DeviceIndex: 0
+          SubnetId: !Ref MyPrivateSN1
+          PrivateIpAddress:
+            !FindInMap [AWSRegionArch2AMI, !Ref "AWS::Region", EC21cidr]
+          GroupSet:
+            - !Ref SecurityGroup
+      Tags:
+        - Key: Name
+          Value: !FindInMap [AWSRegionArch2AMI, !Ref "AWS::Region", EC21]
+      UserData:
+        Fn::Base64: !Sub
+          - |+
+            #!/bin/bash
+            (
+            echo "qwe123"
+            echo "qwe123"
+            ) | passwd --stdin root
+            sed -i "s/^PasswordAuthentication no/PasswordAuthentication yes/g" /etc/ssh/sshd_config
+            sed -i "s/^#PermitRootLogin yes/PermitRootLogin yes/g" /etc/ssh/sshd_config
+            service sshd restart
+            hostnamectl --static set-hostname ${host}-AWS-WebSrv1
+            amazon-linux-extras install -y lamp-mariadb10.2-php7.2 php7.2
+            yum install -y httpd lynx
+            systemctl start httpd && systemctl enable httpd
+            mkdir /var/www/inc
+            curl -o /var/www/inc/dbinfo.inc https://cloudneta-book.s3.ap-northeast-2.amazonaws.com/chapter8/dbinfo.inc
+            curl -o /var/www/html/db.php https://cloudneta-book.s3.ap-northeast-2.amazonaws.com/chapter8/${dbPhp}
+            sed -i $'44 i\<td><button type="button" onClick="location.href=\'/\'">CLICK!!!</button></td>' /var/www/html/db.php
+            rm -rf /var/www/html/index.html
+            echo "<h1>CloudNet@ FullLab - ${host} Region - Websrv1</h1>" > /var/www/html/index.html
+            sed -i $'a\<button type="button" onClick="location.href=\'db.php\'">CLICK!!!</button>' /var/www/html/index.html
+            curl -o /opt/pingcheck.sh https://cloudneta-book.s3.ap-northeast-2.amazonaws.com/chapter8/${pingChk}
+            chmod +x /opt/pingcheck.sh
+            cat <<EOT>> /etc/crontab
+            */3 * * * * root /opt/pingcheck.sh
+            EOT
+            echo "1" > /var/www/html/HealthCheck.txt
+          - host:
+              Fn::FindInMap: [AWSRegionArch2AMI, Ref: "AWS::Region", HOST]
+            dbPhp:
+              Fn::FindInMap: [AWSRegionArch2AMI, Ref: "AWS::Region", DbPhp]
+            pingChk:
+              Fn::FindInMap: [AWSRegionArch2AMI, Ref: "AWS::Region", PingChk]
+
+  MyWeb2:
+    Type: AWS::EC2::Instance
+    Condition: CreateSeoulResources
+    Properties:
+      KeyName: !Ref KeyName
+      ImageId: !Ref LatestLinux2AmiId
+      InstanceType: t2.micro
+      NetworkInterfaces:
+        - DeviceIndex: 0
+          SubnetId: !Ref MyPrivateSN2
+          PrivateIpAddress:
+            !FindInMap [AWSRegionArch2AMI, !Ref "AWS::Region", EC22cidr]
+          GroupSet:
+            - !Ref SecurityGroup
+      Tags:
+        - Key: Name
+          Value: !FindInMap [AWSRegionArch2AMI, !Ref "AWS::Region", EC22]
+      UserData:
+        Fn::Base64: |
+          #!/bin/bash
+          (
+          echo "qwe123"
+          echo "qwe123"
+          ) | passwd --stdin root
+          sed -i "s/^PasswordAuthentication no/PasswordAuthentication yes/g" /etc/ssh/sshd_config
+          sed -i "s/^#PermitRootLogin yes/PermitRootLogin yes/g" /etc/ssh/sshd_config
+          service sshd restart
+          hostnamectl --static set-hostname SEOUL-AWS-WebSrv2
+          amazon-linux-extras install -y lamp-mariadb10.2-php7.2 php7.2
+          yum install -y httpd lynx
+          systemctl start httpd && systemctl enable httpd
+          mkdir /var/www/inc
+          curl -o /var/www/inc/dbinfo.inc https://cloudneta-book.s3.ap-northeast-2.amazonaws.com/chapter8/dbinfo.inc
+          curl -o /var/www/html/db.php https://cloudneta-book.s3.ap-northeast-2.amazonaws.com/chapter8/db.php
+          sed -i $'44 i\<td><button type="button" onClick="location.href=\'/\'">CLICK!!!</button></td>' /var/www/html/db.php
+          rm -rf /var/www/html/index.html
+          echo "<h1>CloudNet@ FullLab - SEOUL Region - Websrv2</h1>" > /var/www/html/index.html
+          sed -i $'a\<button type="button" onClick="location.href=\'db.php\'">CLICK!!!</button>' /var/www/html/index.html
+          curl -o /opt/pingcheck.sh https://cloudneta-book.s3.ap-northeast-2.amazonaws.com/chapter8/pingchecker.sh
+          chmod +x /opt/pingcheck.sh
+          cat <<EOT>> /etc/crontab
+          */3 * * * * root /opt/pingcheck.sh
+          EOT
+          echo "1" > /var/www/html/HealthCheck.txt
+
+  ########## 온프레미스 환경이라고 가정 ##########
+  # IDC-VPC
+  IdcVPC:
+    Type: AWS::EC2::VPC
+    Properties:
+      CidrBlock: !FindInMap [AWSRegionArch2AMI, !Ref "AWS::Region", IdcVPCcidr]
+      EnableDnsHostnames: false
+      EnableDnsSupport: false
+      Tags:
+        - Key: Name
+          Value: !FindInMap [AWSRegionArch2AMI, !Ref "AWS::Region", IdcVPC]
+
+  # IDC-Subnet
+  MyIdcSN:
+    Type: AWS::EC2::Subnet
+    Properties:
+      VpcId: !Ref IdcVPC
+      AvailabilityZone: !Select [0, !GetAZs ""]
+      CidrBlock: !FindInMap [AWSRegionArch2AMI, !Ref "AWS::Region", IdcSNcidr]
+      Tags:
+        - Key: Name
+          Value: !FindInMap [AWSRegionArch2AMI, !Ref "AWS::Region", IdcSN]
+
+  # IDC-DHCP Options
+  VPCDNSOptions:
+    Type: AWS::EC2::DHCPOptions
+    Properties:
+      DomainName: !FindInMap [AWSRegionArch2AMI, !Ref "AWS::Region", DnsName]
+      DomainNameServers:
+        - !FindInMap [AWSRegionArch2AMI, !Ref "AWS::Region", DnsSrvIp]
+        - 8.8.8.8
+      NtpServers:
+        - 203.248.240.140, 168.126.3.6
+      Tags:
+        - Key: Name
+          Value: IDC-VPC-DHCPOptions
+  VPCDNSOptionsAssociation:
+    Type: AWS::EC2::VPCDHCPOptionsAssociation
+    Properties:
+      DhcpOptionsId: !Ref VPCDNSOptions
+      VpcId: !Ref IdcVPC
+
+  # Route Table
+  IdcRT:
+    Type: AWS::EC2::RouteTable
+    Properties:
+      VpcId: !Ref IdcVPC
+      Tags:
+        - Key: Name
+          Value: IDC-RT
+  IdcSNRouteTableAssociation:
+    Type: AWS::EC2::SubnetRouteTableAssociation
+    Properties:
+      RouteTableId: !Ref IdcRT
+      SubnetId: !Ref MyIdcSN
+
+  # Route
+  DefaultRoute:
+    Type: AWS::EC2::Route
+    Properties:
+      DestinationCidrBlock: 0.0.0.0/0
+      GatewayId: !Ref IdcIGW
+      RouteTableId: !Ref IdcRT
+
+  # IDC-IGW
+  IdcIGW:
+    Type: AWS::EC2::InternetGateway
+    Properties:
+      Tags:
+        - Key: Name
+          Value: IDC-IGW
+  IdcIGWAttachment:
+    Type: AWS::EC2::VPCGatewayAttachment
+    Properties:
+      InternetGatewayId: !Ref IdcIGW
+      VpcId: !Ref IdcVPC
+
+  # Security Group
+  DnsSecurityGroup:
+    Type: AWS::EC2::SecurityGroup
+    Properties:
+      GroupDescription: Enable SSH DNS ICMP
+      VpcId: !Ref IdcVPC
+      SecurityGroupIngress:
+        - IpProtocol: tcp
+          FromPort: "53"
+          ToPort: "53"
+          CidrIp: 0.0.0.0/0
+        - IpProtocol: udp
+          FromPort: "53"
+          ToPort: "53"
+          CidrIp: 0.0.0.0/0
+        - IpProtocol: tcp
+          FromPort: "22"
+          ToPort: "22"
+          CidrIp: 0.0.0.0/0
+        - IpProtocol: icmp
+          FromPort: -1
+          ToPort: -1
+          CidrIp: 0.0.0.0/0
+      Tags:
+        - Key: Name
+          Value: IDC-DNS-SG
+
+  DbSecurityGroup:
+    Type: AWS::EC2::SecurityGroup
+    Properties:
+      GroupDescription: Enable SSH DNS ICMP
+      VpcId: !Ref IdcVPC
+      SecurityGroupIngress:
+        - IpProtocol: tcp
+          FromPort: "3306"
+          ToPort: "3306"
+          CidrIp: 0.0.0.0/0
+        - IpProtocol: tcp
+          FromPort: "22"
+          ToPort: "22"
+          CidrIp: 0.0.0.0/0
+        - IpProtocol: icmp
+          FromPort: -1
+          ToPort: -1
+          CidrIp: 0.0.0.0/0
+      Tags:
+        - Key: Name
+          Value: IDC-DB-SG
+
+  CGWSecurityGroup:
+    Type: AWS::EC2::SecurityGroup
+    Properties:
+      GroupDescription: Enable SSH ICMP TGW
+      VpcId: !Ref IdcVPC
+      SecurityGroupIngress:
+        - IpProtocol: udp
+          FromPort: "4500"
+          ToPort: "4500"
+          CidrIp: 0.0.0.0/0
+        - IpProtocol: tcp
+          FromPort: "3306"
+          ToPort: "3306"
+          CidrIp: 0.0.0.0/0
+        - IpProtocol: tcp
+          FromPort: "53"
+          ToPort: "53"
+          CidrIp: 0.0.0.0/0
+        - IpProtocol: udp
+          FromPort: "53"
+          ToPort: "53"
+          CidrIp: 0.0.0.0/0
+        - IpProtocol: tcp
+          FromPort: "22"
+          ToPort: "22"
+          CidrIp: 0.0.0.0/0
+        - IpProtocol: icmp
+          FromPort: -1
+          ToPort: -1
+          CidrIp: 0.0.0.0/0
+      Tags:
+        - Key: Name
+          Value: IDC-CGW-SG
+
+  # EC2 Instance
+  IdcDNS:
+    Type: AWS::EC2::Instance
+    Properties:
+      KeyName: !Ref KeyName
+      ImageId: !Ref LatestLinux2AmiId
+      InstanceType: t2.micro
+      NetworkInterfaces:
+        - DeviceIndex: 0
+          SubnetId: !Ref MyIdcSN
+          GroupSet:
+            - !Ref DnsSecurityGroup
+          AssociatePublicIpAddress: true
+          PrivateIpAddress:
+            !FindInMap [AWSRegionArch2AMI, !Ref "AWS::Region", DnsSrvIp]
+      Tags:
+        - Key: Name
+          Value: IDC-DNS
+      UserData:
+        Fn::Base64: !Sub
+          - |+
+            #!/bin/bash
+            yum -y install bind bind-utils bind-libs
+            systemctl enable --now named.service
+            cat <<EOF>> /etc/named.rfc1912.zones
+            zone "${dnsName}" IN {
+                    type master;
+                    file "${dnsName}.zone";
+                    allow-update { none; };
+            };
+
+            zone "${awsDnsName}" {
+                    type forward;
+                    forward only;
+                    forwarders { ${inboundEP0}; ${inboundEP1}; };
+            };
+
+            zone "${anoAwsDnsName}" {
+                    type forward;
+                    forward only;
+                    forwarders { ${inboundEP0}; ${inboundEP1}; };
+            };
+
+            zone "${anoDnsName}" {
+                    type forward;
+                    forward only;
+                    forwarders { ${inboundEP0}; ${inboundEP1}; };
+            };
+            EOF
+            touch /var/named/${dnsName}.zone
+            chown root:named /var/named/${dnsName}.zone
+            cat <<EOF> /var/named/${dnsName}.zone
+            \$TTL 1D
+            @       IN SOA  ${dnsName}. root. (
+                                                    0       ; serial
+                                                    1D      ; refresh
+                                                    1H      ; retry
+                                                    1W      ; expire
+                                                    3H )    ; minimum
+                    IN      NS      ${dnsName}.
+                    IN      A       ${dnsSrvIp}
+            dnssrv  IN      A       ${dnsSrvIp}
+            dbsrv  IN      A       ${dbSrvIp}
+            EOF
+            sed -i 's/127.0.0.1/any/' /etc/named.conf
+            sed -i 's/localhost/any/' /etc/named.conf
+            sed -i 's/dnssec-enable yes/dnssec-enable no/' /etc/named.conf
+            sed -i 's/dnssec-validation yes/dnssec-validation no/' /etc/named.conf
+            systemctl restart named.service
+          - dnsName:
+              Fn::FindInMap: [AWSRegionArch2AMI, Ref: "AWS::Region", DnsName]
+            dnsSrvIp:
+              Fn::FindInMap: [AWSRegionArch2AMI, Ref: "AWS::Region", DnsSrvIp]
+            dbSrvIp:
+              Fn::FindInMap: [AWSRegionArch2AMI, Ref: "AWS::Region", DbSrvIp]
+            awsDnsName:
+              Fn::FindInMap: [AWSRegionArch2AMI, Ref: "AWS::Region", AwsDnsName]
+            anoDnsName:
+              Fn::FindInMap: [AWSRegionArch2AMI, Ref: "AWS::Region", AnoDnsName]
+            anoAwsDnsName:
+              Fn::FindInMap:
+                [AWSRegionArch2AMI, Ref: "AWS::Region", AnoAwsDnsName]
+            inboundEP0:
+              Fn::FindInMap: [AWSRegionArch2AMI, Ref: "AWS::Region", InboundEP0]
+            inboundEP1:
+              Fn::FindInMap: [AWSRegionArch2AMI, Ref: "AWS::Region", InboundEP1]
+
+  IdcMasterDB:
+    Type: AWS::EC2::Instance
+    Condition: CreateSeoulResources
+    Properties:
+      KeyName: !Ref KeyName
+      ImageId: !Ref LatestLinux2AmiId
+      InstanceType: t2.micro
+      NetworkInterfaces:
+        - DeviceIndex: 0
+          SubnetId: !Ref MyIdcSN
+          GroupSet:
+            - !Ref DbSecurityGroup
+          AssociatePublicIpAddress: true
+          PrivateIpAddress:
+            !FindInMap [AWSRegionArch2AMI, !Ref "AWS::Region", DbSrvIp]
+      Tags:
+        - Key: Name
+          Value: IDC-MASTER-DB
+      UserData:
+        Fn::Base64: |
+          #!/bin/bash
+          hostnamectl --static set-hostname Seoul-IDC-DB
+          yum install -y mariadb-server mariadb lynx
+          systemctl start mariadb && systemctl enable mariadb
+          echo -e "\n\nqwe123\nqwe123\ny\ny\ny\ny\n" | /usr/bin/mysql_secure_installation
+          cat <<EOT> /etc/my.cnf
+          [mysqld]
+          character-set-server=utf8
+          init_connect=SET collation_connection = utf8_general_ci
+          init_connect=SET NAMES utf8
+          skip-character-set-client-handshake
+          datadir=/var/lib/mysql
+          socket=/var/lib/mysql/mysql.sock
+          symbolic-links=0        
+          #아래부분만 추가할것         
+          log-bin=mysql-bin
+          server-id=1
+          [mysqld_safe]
+          log-error=/var/log/mariadb/mariadb.log
+          pid-file=/var/run/mariadb/mariadb.pid
+          !includedir /etc/my.cnf.d
+          EOT
+          systemctl restart mariadb
+          mysql -uroot -pqwe123 -e "CREATE DATABASE sample; GRANT ALL PRIVILEGES ON *.* TO 'gasida'@'%' IDENTIFIED BY 'qwe123'; GRANT REPLICATION SLAVE ON *.* TO 'repl_user'@'%' IDENTIFIED BY 'qwe123'; flush privileges;"
+          mysql -uroot -pqwe123 -e "USE sample;CREATE TABLE EMPLOYEES (ID int(11) UNSIGNED AUTO_INCREMENT PRIMARY KEY,NAME VARCHAR(45),ADDRESS VARCHAR(90));"
+          cat <<EOT> /home/ec2-user/list.txt
+          10.1.3.100
+          websrv1.awsseoul.internal
+          10.1.4.100
+          websrv2.awsseoul.internal
+          10.2.1.100
+          dbsrv.idcseoul.internal
+          10.2.1.200
+          dnssrv.idcseoul.internal
+          10.3.3.100
+          websrv1.awssingapore.internal
+          10.4.1.100
+          dbsrv.idcsingapore.internal
+          10.4.1.200
+          dnssrv.idcsingapore.internal
+          EOT
+          curl -o /home/ec2-user/pingall.sh https://cloudneta-book.s3.ap-northeast-2.amazonaws.com/chapter6/pingall.sh --silent
+          chmod +x /home/ec2-user/pingall.sh
+
+  IdcSlaveDB:
+    Type: AWS::EC2::Instance
+    Condition: CreateSingaporeResources
+    Properties:
+      KeyName: !Ref KeyName
+      ImageId: !Ref LatestLinux2AmiId
+      InstanceType: t2.micro
+      NetworkInterfaces:
+        - DeviceIndex: 0
+          SubnetId: !Ref MyIdcSN
+          GroupSet:
+            - !Ref DbSecurityGroup
+          AssociatePublicIpAddress: true
+          PrivateIpAddress:
+            !FindInMap [AWSRegionArch2AMI, !Ref "AWS::Region", DbSrvIp]
+      Tags:
+        - Key: Name
+          Value: IDC-SLAVE-DB
+      UserData:
+        Fn::Base64: !Sub
+          - |+
+            #!/bin/bash
+            hostnamectl --static set-hostname Singapore-IDC-DB
+            yum install -y mariadb-server mariadb lynx
+            sed -i '2 i\character-set-server=utf8' /etc/my.cnf
+            sed -i '2 i\init_connect=SET collation_connection = utf8_general_ci' /etc/my.cnf
+            sed -i '2 i\init_connect=SET NAMES utf8' /etc/my.cnf
+            sed -i '2 i\skip-character-set-client-handshake' /etc/my.cnf
+            systemctl start mariadb && systemctl enable mariadb
+            echo -e "\n\nqwe123\nqwe123\ny\ny\ny\ny\n" | /usr/bin/mysql_secure_installation
+            mysql -uroot -pqwe123 -e "CREATE DATABASE sample; GRANT SELECT ON *.* TO 'gasida'@'%' IDENTIFIED BY 'qwe123'; flush privileges;"
+            mysql -uroot -pqwe123 -e "USE sample;CREATE TABLE EMPLOYEES (ID int(11) UNSIGNED AUTO_INCREMENT PRIMARY KEY,NAME VARCHAR(45),ADDRESS VARCHAR(90));"
+            cat <<EOT> /etc/my.cnf
+            [mysqld]
+            character-set-server=utf8
+            init_connect=SET collation_connection = utf8_general_ci
+            init_connect=SET NAMES utf8
+            skip-character-set-client-handshake
+            datadir=/var/lib/mysql
+            socket=/var/lib/mysql/mysql.sock
+            symbolic-links=0
+            #아래부분만 추가하면 됨
+            log-bin=mysql-bin
+            server-id=2
+            read_only=1
+            replicate-do-db='sample'
+            [mysqld_safe]
+            log-error=/var/log/mariadb/mariadb.log
+            pid-file=/var/run/mariadb/mariadb.pid
+            !includedir /etc/my.cnf.d
+            EOT
+            systemctl restart mariadb
+            cat <<EOT> /home/ec2-user/list.txt
+            10.1.3.100
+            websrv1.awsseoul.internal
+            10.1.4.100
+            websrv2.awsseoul.internal
+            10.2.1.100
+            dbsrv.idcseoul.internal
+            10.2.1.200
+            dnssrv.idcseoul.internal
+            10.3.3.100
+            websrv1.awssingapore.internal
+            10.4.1.100
+            dbsrv.idcsingapore.internal
+            10.4.1.200
+            dnssrv.idcsingapore.internal
+            EOT
+            curl -o /home/ec2-user/pingall.sh https://cloudneta-book.s3.ap-northeast-2.amazonaws.com/chapter6/pingall.sh --silent
+            chmod +x /home/ec2-user/pingall.sh
+            mysql -u root -pqwe123 -e 'CHANGE MASTER TO master_host="dbsrv.${anoDnsName}", master_user="gasida", master_password="qwe123", master_log_file="mysql-bin.000001", master_log_pos=868;'
+            mysql -u root -pqwe123 -e "START SLAVE;"
+          - anoDnsName:
+              Fn::FindInMap: [AWSRegionArch2AMI, Ref: "AWS::Region", AnoDnsName]
+
+  ########## Customer Gateway ##########
+  # EIP generate
+  CGWEIP:
+    Type: AWS::EC2::EIP
+    Properties:
+      Domain: vpc
+
+  # ENI
+  CGWENI:
+    Type: AWS::EC2::NetworkInterface
+    Properties:
+      SubnetId: !Ref MyIdcSN
+      Description: IDC-CGW-ENI eht0
+      GroupSet:
+        - !Ref CGWSecurityGroup
+      Tags:
+        - Key: Name
+          Value: IDC-CGW-ENI
+  CGWEIPAssoc:
+    Type: AWS::EC2::EIPAssociation
+    Properties:
+      NetworkInterfaceId: !Ref CGWENI
+      AllocationId: !GetAtt CGWEIP.AllocationId
+
+  # CGW Instance
+  CGW:
+    Type: AWS::EC2::Instance
+    Properties:
+      KeyName: !Ref KeyName
+      ImageId: !Ref LatestLinux2AmiId
+      InstanceType: t2.micro
+      SourceDestCheck: false
+      NetworkInterfaces:
+        - DeviceIndex: 0
+          NetworkInterfaceId: !Ref CGWENI
+      Tags:
+        - Key: Name
+          Value: CGW-EC2
+      UserData:
+        Fn::Base64: |
+          #!/bin/bash
+          hostnamectl --static set-hostname IDC-CGW
+          yum -y install tcpdump openswan
+          cat <<EOF>> /etc/sysctl.conf
+          net.ipv4.ip_forward=1
+          net.ipv4.conf.all.accept_redirects = 0
+          net.ipv4.conf.all.send_redirects = 0
+          net.ipv4.conf.default.send_redirects = 0
+          net.ipv4.conf.eth0.send_redirects = 0
+          net.ipv4.conf.default.accept_redirects = 0
+          net.ipv4.conf.eth0.accept_redirects = 0
+          net.ipv4.conf.ip_vti0.rp_filter = 0
+          net.ipv4.conf.eth0.rp_filter = 0
+          net.ipv4.conf.default.rp_filter = 0
+          net.ipv4.conf.all.rp_filter = 0
+          EOF
+          sysctl -p /etc/sysctl.conf
+          curl -o /etc/ipsec.d/vpnconfig.sh https://cloudneta-book.s3.ap-northeast-2.amazonaws.com/chapter6/6_lab_s2s-vpnconfig.sh
+          chmod +x /etc/ipsec.d/vpnconfig.sh
+
+  ########## Transit Gateway ##########
+  # TGW
+  TransitGateway:
+    Type: AWS::EC2::TransitGateway
+    Properties:
+      Tags:
+        - Key: Name
+          Value: MyTGW
+
+  # TGW Att
+  TransitGatewayAtt:
+    Type: AWS::EC2::TransitGatewayAttachment
+    DependsOn: MyVPC
+    Properties:
+      VpcId: !Ref MyVPC
+      SubnetIds:
+        - !Ref SubSN1
+        - !Ref SubSN2
+      TransitGatewayId: !Ref TransitGateway
+      Tags:
+        - Key: Name
+          Value: TGW-AWS-ATT
+
+  AwsPrivateRTRoute1:
+    Type: AWS::EC2::Route
+    DependsOn: TransitGatewayAtt
+    Properties:
+      DestinationCidrBlock:
+        !FindInMap [AWSRegionArch2AMI, !Ref "AWS::Region", superNet]
+      TransitGatewayId: !Ref TransitGateway
+      RouteTableId: !Ref MyPrivateRT1
+
+  AwsPrivateRTRoute2:
+    Type: AWS::EC2::Route
+    DependsOn: TransitGatewayAtt
+    Properties:
+      DestinationCidrBlock:
+        !FindInMap [AWSRegionArch2AMI, !Ref "AWS::Region", superNet]
+      TransitGatewayId: !Ref TransitGateway
+      RouteTableId: !Ref MyPrivateRT2
+
+  # sit to site VPN
+  IdcCGW:
+    Type: AWS::EC2::CustomerGateway
+    Properties:
+      Type: ipsec.1
+      BgpAsn: 65000
+      IpAddress: !Ref CGWEIP
+      Tags:
+        - Key: Name
+          Value: IDC-CGW
+
+  VpnConnection:
+    Type: AWS::EC2::VPNConnection
+    Properties:
+      Type: ipsec.1
+      StaticRoutesOnly: true
+      CustomerGatewayId: !Ref IdcCGW
+      TransitGatewayId: !Ref TransitGateway
+      VpnTunnelOptionsSpecifications:
+        - PreSharedKey: cloudneta
+        - PreSharedKey: cloudneta
+      Tags:
+        - Key: Name
+          Value: AWS-VPNConnection-IDC
+
+  IdcRTRoute:
+    Type: AWS::EC2::Route
+    Properties:
+      DestinationCidrBlock:
+        !FindInMap [AWSRegionArch2AMI, !Ref "AWS::Region", superNet]
+      InstanceId: !Ref CGW
+      RouteTableId: !Ref IdcRT
+#### Transit Gateway default route talbe에 vpn 정적 경로를 추가해주어야 한다, 그리고 cgw 들어가서 ipsec 설정
+#### 웹 콘솔로 Transit Gateway 서울과 싱가포르 Transit Gateway peering으로 연결 후 Transit Gateway default route talbe에 경로 설정
+#### 웹 콘솔로 Global Accelerator 생성
