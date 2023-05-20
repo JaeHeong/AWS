@@ -1,1 +1,1 @@
-# AWS Cloudformation 🚀
+# AWS 🚀
